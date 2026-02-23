@@ -2,7 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"myapp/internal/models"
+	"github.com/burhanarif4211/rafta/internal/models"
+	"time"
 )
 
 type NoteFolderRepository interface {

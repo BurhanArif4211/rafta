@@ -10,7 +10,7 @@ import (
 
 func main() {
 	// Initialize database
-	database, err := db.InitDB("./myapp.db")
+	database, err := db.InitDB("./data/rafta_main.db")
 	if err != nil {
 		log.Fatal(err)
 	}
