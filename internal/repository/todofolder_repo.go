@@ -8,6 +8,7 @@ import (
 
 type TodoFolderRepository interface {
 	Create(folder *models.TodoFolder) error
+	GetAll() ([]*models.TodoFolder, error)
 	GetByID(id string) (*models.TodoFolder, error)
 	GetRoots() ([]*models.TodoFolder, error)
 	GetChildren(parentID string) ([]*models.TodoFolder, error)
@@ -27,6 +28,23 @@ func (r *todoFolderRepository) Create(folder *models.TodoFolder) error {
 	query := `INSERT INTO todo_folders (id, name, parent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query, folder.ID, folder.Name, folder.ParentID, folder.CreatedAt, folder.UpdatedAt)
 	return err
+}
+
+func (r *todoFolderRepository) GetAll() ([]*models.TodoFolder, error) {
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folder`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var todofolders []*models.TodoFolder
+	for rows.Next() {
+		var n models.TodoFolder
+		if err := rows.Scan(&n.ID, &n.Name, &n.ParentID, &n.CreatedAt, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		todofolders = append(todofolders, &n)
+	}
+	return todofolders, rows.Err()
 }
 
 func (r *todoFolderRepository) GetByID(id string) (*models.TodoFolder, error) {

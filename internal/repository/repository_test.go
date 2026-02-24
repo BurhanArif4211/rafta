@@ -3,9 +3,8 @@ package repository
 import (
 	"database/sql"
 	"github.com/burhanarif4211/rafta/internal/models"
-	"testing"
-
 	_ "modernc.org/sqlite"
+	"testing"
 )
 
 // setupTestDB creates an in-memory SQLite database with the full schema.

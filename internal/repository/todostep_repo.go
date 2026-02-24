@@ -8,6 +8,7 @@ import (
 
 type TodoStepRepository interface {
 	Create(step *models.TodoStep) error
+	GetAll() ([]*models.TodoStep, error)
 	GetByID(id string) (*models.TodoStep, error)
 	GetByTodo(todoID string) ([]*models.TodoStep, error)
 	Update(step *models.TodoStep) error
@@ -29,6 +30,23 @@ func (r *todoStepRepository) Create(step *models.TodoStep) error {
               VALUES (?, ?, ?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query, step.ID, step.TodoID, step.Description, step.Completed, step.DisplayOrder, step.CreatedAt, step.UpdatedAt)
 	return err
+}
+
+func (r *todoStepRepository) GetAll() ([]*models.TodoStep, error) {
+	rows, err := r.db.Query(`SELECT id, todo_id, description, completed, display_order, created_at, updated_at FROM todo_steps`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var steps []*models.TodoStep
+	for rows.Next() {
+		var s models.TodoStep
+		if err := rows.Scan(&s.ID, &s.TodoID, &s.Description, &s.Completed, &s.DisplayOrder, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, err
+		}
+		steps = append(steps, &s)
+	}
+	return steps, rows.Err()
 }
 
 func (r *todoStepRepository) GetByID(id string) (*models.TodoStep, error) {

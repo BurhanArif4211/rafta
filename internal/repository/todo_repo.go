@@ -8,6 +8,7 @@ import (
 
 type TodoRepository interface {
 	Create(todo *models.Todo) error
+	GetAll() ([]*models.Todo, error)
 	GetByID(id string) (*models.Todo, error)
 	GetByFolder(folderID string) ([]*models.Todo, error)
 	Update(todo *models.Todo) error
@@ -26,6 +27,23 @@ func (r *todoRepository) Create(todo *models.Todo) error {
 	query := `INSERT INTO todos (id, title, folder_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query, todo.ID, todo.Title, todo.FolderID, todo.CreatedAt, todo.UpdatedAt)
 	return err
+}
+
+func (r *todoRepository) GetAll() ([]*models.Todo, error) {
+	rows, err := r.db.Query(`SELECT id, title, folder_id, created_at, updated_at FROM todos`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var todos []*models.Todo
+	for rows.Next() {
+		var n models.Todo
+		if err := rows.Scan(&n.ID, &n.Title, &n.FolderID, &n.CreatedAt, &n.UpdatedAt); err != nil {
+			return nil, err
+		}
+		todos = append(todos, &n)
+	}
+	return todos, rows.Err()
 }
 
 func (r *todoRepository) GetByID(id string) (*models.Todo, error) {

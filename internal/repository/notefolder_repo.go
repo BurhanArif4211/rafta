@@ -8,6 +8,7 @@ import (
 
 type NoteFolderRepository interface {
 	Create(folder *models.NoteFolder) error
+	GetAll() ([]*models.NoteFolder, error)
 	GetByID(id string) (*models.NoteFolder, error)
 	GetRoots() ([]*models.NoteFolder, error)
 	GetChildren(parentID string) ([]*models.NoteFolder, error)
@@ -28,6 +29,23 @@ func (r *noteFolderRepository) Create(folder *models.NoteFolder) error {
               VALUES (?, ?, ?, ?, ?)`
 	_, err := r.db.Exec(query, folder.ID, folder.Name, folder.ParentID, folder.CreatedAt, folder.UpdatedAt)
 	return err
+}
+
+func (r *noteFolderRepository) GetAll() ([]*models.NoteFolder, error) {
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var folders []*models.NoteFolder
+	for rows.Next() {
+		var f models.NoteFolder
+		if err := rows.Scan(&f.ID, &f.Name, &f.ParentID, &f.CreatedAt, &f.UpdatedAt); err != nil {
+			return nil, err
+		}
+		folders = append(folders, &f)
+	}
+	return folders, rows.Err()
 }
 
 func (r *noteFolderRepository) GetByID(id string) (*models.NoteFolder, error) {
