@@ -3,6 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -11,7 +13,7 @@ import (
 	"github.com/burhanarif4211/rafta/internal/db"
 	"github.com/burhanarif4211/rafta/internal/repository"
 	"github.com/burhanarif4211/rafta/internal/sync"
-	"log"
+	"github.com/burhanarif4211/rafta/internal/ui/notes"
 )
 
 func main() {
@@ -29,19 +31,30 @@ func main() {
 	todoRepo := repository.NewTodoRepository(database)
 	todoStepRepo := repository.NewTodoStepRepository(database)
 
-	// Start sync server on port 8080
+	// Start sync server
 	syncServer := sync.NewServer(noteFolderRepo, noteRepo, todoFolderRepo, todoRepo, todoStepRepo)
-	if err := syncServer.Start("8080"); err != nil {
+	if err := syncServer.Start("4211"); err != nil {
 		log.Printf("Failed to start sync server: %v", err)
 	}
 	defer syncServer.Stop()
 
 	// Create Fyne app
 	a := app.New()
-	w := a.NewWindow("MyApp")
+	w := a.NewWindow("Rafta")
 
-	// Build UI (placeholder – we'll replace with actual tabs later)
-	content := widget.NewLabel("Main content will go here")
+	// Create notes tab
+	notesTab := notes.NewNotesTab(noteFolderRepo, noteRepo, w)
+
+	// Create todos tab (we'll implement later)
+	// todosTab := todos.NewTodosTab(todoFolderRepo, todoRepo, todoStepRepo, w)
+
+	// Placeholder for todos tab for now
+	todosPlaceholder := container.NewCenter(widget.NewLabel("Todos coming soon"))
+
+	tabs := container.NewAppTabs(
+		container.NewTabItem("Notes", notesTab.Content()),
+		container.NewTabItem("Todos", todosPlaceholder),
+	)
 
 	// Sync menu item
 	syncItem := fyne.NewMenuItem("Sync from device...", func() {
@@ -51,20 +64,22 @@ func main() {
 	mainMenu := fyne.NewMainMenu(fileMenu)
 	w.SetMainMenu(mainMenu)
 
-	w.SetContent(content)
-	w.Resize(fyne.NewSize(800, 600))
+	//main ui setter
+	w.SetContent(tabs)
+
+	w.Resize(fyne.NewSize(1000, 700))
 	w.ShowAndRun()
 }
 
 func showSyncDialog(parent fyne.Window, db *sql.DB) {
 	ipEntry := widget.NewEntry()
-	ipEntry.SetPlaceHolder("192.168.0.2:8080")
+	ipEntry.SetPlaceHolder("ENTER IP ADDRESS")
 
 	items := []*widget.FormItem{
-		widget.NewFormItem("Device IP:port", ipEntry),
+		widget.NewFormItem("Device IP", ipEntry),
 	}
-
 	dialog.ShowForm("Sync from device", "Pull", "Cancel", items, func(confirmed bool) {
+
 		if !confirmed {
 			return
 		}

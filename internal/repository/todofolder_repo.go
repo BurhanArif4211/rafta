@@ -2,8 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"github.com/burhanarif4211/rafta/internal/models"
 	"time"
+
+	"github.com/burhanarif4211/rafta/internal/models"
 )
 
 type TodoFolderRepository interface {
@@ -31,7 +32,7 @@ func (r *todoFolderRepository) Create(folder *models.TodoFolder) error {
 }
 
 func (r *todoFolderRepository) GetAll() ([]*models.TodoFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folder`)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folders`)
 	if err != nil {
 		return nil, err
 	}
