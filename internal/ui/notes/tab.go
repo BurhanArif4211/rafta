@@ -45,6 +45,7 @@ func NewNotesTab(
 	noteRepo repository.NoteRepository,
 	win fyne.Window,
 ) *NotesTab {
+
 	nt := &NotesTab{
 		noteFolderRepo: noteFolderRepo,
 		noteRepo:       noteRepo,
@@ -91,11 +92,25 @@ func (nt *NotesTab) buildUI() {
 		nt.currentFolderID = id
 		nt.refreshNotes()
 	}
+	nt.folderTree.OnUnselected = func(uid string) {
+		// Clear selection when clicking on empty area
+		nt.currentFolderID = ""
+		// Clear the notes list or show a placeholder
+		nt.noteList.UnselectAll()
+		nt.noteList.Refresh()
+	}
 
-	newFolderBtn := widget.NewButtonWithIcon("New Folder", theme.ContentAddIcon(), nt.createFolder)
-	renameFolderBtn := widget.NewButtonWithIcon("Rename", theme.DocumentCreateIcon(), nt.renameFolder)
-	deleteFolderBtn := widget.NewButtonWithIcon("Delete", theme.DeleteIcon(), nt.deleteFolder)
-	nt.folderToolbar = container.NewHBox(newFolderBtn, renameFolderBtn, deleteFolderBtn)
+	newFolderBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nt.createFolder)
+	renameFolderBtn := widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), nt.renameFolder)
+	deleteFolderBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), nt.deleteFolder)
+	clearFolderSelBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		nt.folderTree.UnselectAll()
+		nt.currentFolderID = ""
+		nt.notes = nil
+		nt.noteList.UnselectAll()
+		nt.noteList.Refresh()
+	})
+	nt.folderToolbar = container.NewHBox(newFolderBtn, renameFolderBtn, deleteFolderBtn, clearFolderSelBtn)
 
 	leftPanel := container.NewBorder(
 		container.NewVBox(
@@ -148,11 +163,17 @@ func (nt *NotesTab) buildUI() {
 	nt.editorStack = container.NewStack(nt.editor, nt.preview)
 	nt.preview.Hide()
 
-	saveBtn := widget.NewButtonWithIcon("Save", theme.DocumentSaveIcon(), nt.saveCurrentNote)
-	previewBtn := widget.NewButton("Preview", nt.togglePreview)
-	newNoteBtn := widget.NewButtonWithIcon("New Note", theme.ContentAddIcon(), nt.createNewNote)
+	saveBtn := widget.NewButtonWithIcon("", theme.DocumentSaveIcon(), nt.saveCurrentNote)
+	previewBtn := widget.NewButtonWithIcon("", theme.MenuIcon(), nt.togglePreview)
+	newNoteBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nt.createNewNote)
+	deleteNoteBtn := widget.NewButtonWithIcon("", theme.DeleteIcon(), nt.deleteNote)
+	clearNoteSelBtn := widget.NewButtonWithIcon("", theme.CancelIcon(), func() {
+		nt.noteList.UnselectAll()
+		nt.selectedNoteID = ""
+		nt.editor.SetText("")
+	})
 
-	editorToolbar := container.NewHBox(saveBtn, previewBtn, newNoteBtn)
+	editorToolbar := container.NewHBox(saveBtn, previewBtn, newNoteBtn, deleteNoteBtn, clearNoteSelBtn)
 	editorPanel := container.NewBorder(editorToolbar, nil, nil, nil, nt.editorStack)
 
 	// ----- Assemble main layout -----
@@ -298,6 +319,32 @@ func (nt *NotesTab) deleteFolder() {
 }
 
 // ---------- Note operations ----------
+
+func (nt *NotesTab) deleteNote() {
+	if nt.selectedNoteID == "" {
+		dialog.ShowInformation("No Selection", "Please select a note to delete.", nt.win)
+		return
+	}
+	dialog.ShowConfirm("Delete Note", "Are you sure you want to delete this note?", func(confirm bool) {
+		if !confirm {
+			return
+		}
+		// Call repository
+		err := nt.noteRepo.Delete(nt.selectedNoteID)
+		if err != nil {
+			dialog.ShowError(err, nt.win)
+			return
+		}
+		// Clear selection
+		nt.selectedNoteID = ""
+		nt.noteList.UnselectAll()
+		// Refresh the note list
+		// nt.loadNotesForFolder(nt.selectedFolderID) // refreshes the list
+		// Clear editor
+		nt.editor.SetText("")
+	}, nt.win)
+}
+
 func (nt *NotesTab) refreshNotes() {
 	if nt.currentFolderID == "" {
 		return

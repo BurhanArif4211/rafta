@@ -100,7 +100,6 @@ func showSyncDialog(parent fyne.Window, db *sql.DB) {
 			} else {
 				fyne.Do(func() {
 					dialog.ShowInformation("Sync completed", "Data successfully pulled from device.", parent)
-					// TODO: refresh UI (folders, notes, todos)
 				})
 			}
 		}()
