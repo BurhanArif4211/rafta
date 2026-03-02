@@ -14,6 +14,7 @@ import (
 	"github.com/burhanarif4211/rafta/internal/repository"
 	"github.com/burhanarif4211/rafta/internal/sync"
 	"github.com/burhanarif4211/rafta/internal/ui/notes"
+	"github.com/burhanarif4211/rafta/internal/ui/todos"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 		log.Printf("Failed to start sync server: %v", err)
 	}
 	defer syncServer.Stop()
-
+	// log.Println(noteRepo.GetByFolder("f9001707-8a14-4e6a-a010-ba4d96b78e45"))
 	// Create Fyne app
 	a := app.New()
 	w := a.NewWindow("Rafta")
@@ -46,14 +47,11 @@ func main() {
 	notesTab := notes.NewNotesTab(noteFolderRepo, noteRepo, w)
 
 	// Create todos tab (we'll implement later)
-	// todosTab := todos.NewTodosTab(todoFolderRepo, todoRepo, todoStepRepo, w)
-
-	// Placeholder for todos tab for now
-	todosPlaceholder := container.NewCenter(widget.NewLabel("Todos coming soon"))
+	todosTab := todos.NewTodosTab(todoFolderRepo, todoRepo, todoStepRepo, w)
 
 	tabs := container.NewAppTabs(
 		container.NewTabItem("Notes", notesTab.Content()),
-		container.NewTabItem("Todos", todosPlaceholder),
+		container.NewTabItem("Todos", todosTab.Content()),
 	)
 
 	// Sync menu item
@@ -67,7 +65,7 @@ func main() {
 	//main ui setter
 	w.SetContent(tabs)
 
-	w.Resize(fyne.NewSize(1000, 700))
+	w.Resize(fyne.NewSize(600, 400))
 	w.ShowAndRun()
 }
 

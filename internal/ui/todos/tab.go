@@ -1,0 +1,303 @@
+package todos
+
+import (
+	"database/sql"
+
+	"github.com/burhanarif4211/rafta/internal/models"
+	"github.com/burhanarif4211/rafta/internal/repository"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
+)
+
+type Item struct {
+	ID       string
+	Type     ItemType
+	Name     string
+	ParentID string // for todos: folder ID; for folders: parent folder ID (empty if root)
+}
+
+type TodosTab struct {
+	folderRepo repository.TodoFolderRepository
+	todoRepo   repository.TodoRepository
+	stepRepo   repository.TodoStepRepository
+
+	// Data
+	items   map[string]*Item
+	rootIDs []string
+
+	// UI
+	tree    *widget.Tree
+	editor  *TodoEditor
+	win     fyne.Window
+	content fyne.CanvasObject
+
+	// Selection
+	selectedID string
+
+	// Callbacks
+	onAdd    func(string) // folder -> add todo; todo -> add step
+	onRename func(string, string)
+	onDelete func(string, ItemType)
+	onSelect func(string) // select todo
+}
+
+func NewTodosTab(folderRepo repository.TodoFolderRepository, todoRepo repository.TodoRepository, stepRepo repository.TodoStepRepository, win fyne.Window) *TodosTab {
+	tt := &TodosTab{
+		folderRepo: folderRepo,
+		todoRepo:   todoRepo,
+		stepRepo:   stepRepo,
+		win:        win,
+		items:      make(map[string]*Item),
+	}
+	tt.onAdd = tt.handleAdd
+	tt.onRename = tt.renameItem
+	tt.onDelete = tt.deleteItem
+	tt.onSelect = tt.selectTodo
+	tt.buildUI()
+	tt.refreshData()
+	return tt
+}
+
+func (tt *TodosTab) buildUI() {
+	// Tree with custom rows
+	tt.tree = widget.NewTree(
+		func(id widget.TreeNodeID) []widget.TreeNodeID {
+			if id == "" {
+				return tt.rootIDs
+			}
+			var children []string
+			for _, item := range tt.items {
+				if item.ParentID == id {
+					children = append(children, item.ID)
+				}
+			}
+			return children
+		},
+		func(id widget.TreeNodeID) bool {
+			if id == "" {
+				return true
+			}
+			item, ok := tt.items[id]
+			return ok && item.Type == TypeFolder
+		},
+		func(branch bool) fyne.CanvasObject {
+			return newTreeRow(branch, tt.onAdd, tt.onRename, tt.onDelete)
+		},
+		func(id widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
+			row := obj.(*treeRow)
+			if id == "" {
+				return
+			}
+			item, ok := tt.items[id]
+			if !ok {
+				return
+			}
+			row.SetItem(id, item.Name, item.Type)
+		},
+	)
+	tt.tree.OnSelected = func(id widget.TreeNodeID) {
+		tt.selectedID = id
+		item, ok := tt.items[id]
+		if ok && item.Type == TypeTodo {
+			tt.onSelect(id)
+		}
+	}
+	tt.tree.OnUnselected = func(id widget.TreeNodeID) {
+		tt.selectedID = ""
+		tt.editor.Clear()
+	}
+
+	// Editor
+	tt.editor = NewTodoEditor(tt.todoRepo, tt.stepRepo, tt.win)
+
+	// Top toolbar
+	newFolderBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), tt.createFolder)
+	deselectBtn := widget.NewButtonWithIcon("", theme.ViewRestoreIcon(), func() {
+		tt.tree.UnselectAll()
+		tt.selectedID = ""
+		tt.editor.Clear()
+	})
+	refreshBtn := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), tt.refreshData)
+	toolbar := container.NewHBox(newFolderBtn, deselectBtn, refreshBtn)
+
+	// Split view
+	left := container.NewBorder(toolbar, nil, nil, nil, tt.tree)
+	split := container.NewHSplit(left, tt.editor.Content())
+	split.Offset = 0.3
+	tt.content = split
+}
+
+func (tt *TodosTab) Content() fyne.CanvasObject {
+	return tt.content
+}
+
+func (tt *TodosTab) refreshData() {
+	// Fetch all folders
+	folders, err := tt.folderRepo.GetAll()
+	if err != nil {
+		dialog.ShowError(err, tt.win)
+		return
+	}
+	// Fetch all todos
+	todos, err := tt.todoRepo.GetAll()
+	if err != nil {
+		dialog.ShowError(err, tt.win)
+		return
+	}
+	// Build items map
+	tt.items = make(map[string]*Item)
+	for _, f := range folders {
+		parentID := ""
+		if f.ParentID.Valid {
+			parentID = f.ParentID.String
+		}
+		tt.items[f.ID] = &Item{
+			ID:       f.ID,
+			Type:     TypeFolder,
+			Name:     f.Name,
+			ParentID: parentID,
+		}
+	}
+	for _, t := range todos {
+		tt.items[t.ID] = &Item{
+			ID:       t.ID,
+			Type:     TypeTodo,
+			Name:     t.Title,
+			ParentID: t.FolderID,
+		}
+	}
+	// Compute root IDs
+	tt.rootIDs = nil
+	for _, item := range tt.items {
+		if item.ParentID == "" {
+			tt.rootIDs = append(tt.rootIDs, item.ID)
+		}
+	}
+	tt.tree.Refresh()
+}
+
+// Folder creation (always a folder)
+func (tt *TodosTab) createFolder() {
+	entry := widget.NewEntry()
+	dialog.ShowForm("New Folder", "Create", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Name", entry),
+	}, func(ok bool) {
+		if !ok || entry.Text == "" {
+			return
+		}
+		var parentID sql.NullString
+		if tt.selectedID != "" {
+			if item, exists := tt.items[tt.selectedID]; exists && item.Type == TypeFolder {
+				parentID = sql.NullString{String: tt.selectedID, Valid: true}
+			}
+		}
+		folder := models.NewTodoFolder(entry.Text, parentID)
+		err := tt.folderRepo.Create(folder)
+		if err != nil {
+			dialog.ShowError(err, tt.win)
+			return
+		}
+		tt.refreshData()
+	}, tt.win)
+}
+
+// handleAdd: if called from a folder, add a todo; if from a todo, add a step
+func (tt *TodosTab) handleAdd(parentID string) {
+	item, exists := tt.items[parentID]
+	if !exists {
+		return
+	}
+	if item.Type == TypeFolder {
+		tt.createTodo(parentID)
+	} else if item.Type == TypeTodo {
+		// Focus step entry in editor
+		tt.editor.addStepEntry.FocusGained() // but we need to ensure the todo is selected
+		if tt.selectedID != parentID {
+			tt.tree.Select(parentID)
+		}
+	}
+}
+
+func (tt *TodosTab) createTodo(folderID string) {
+	entry := widget.NewEntry()
+	dialog.ShowForm("New Todo", "Create", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Title", entry),
+	}, func(ok bool) {
+		if !ok || entry.Text == "" {
+			return
+		}
+		todo := models.NewTodo(entry.Text, folderID)
+		err := tt.todoRepo.Create(todo)
+		if err != nil {
+			dialog.ShowError(err, tt.win)
+			return
+		}
+		tt.refreshData()
+		// Optionally select the new todo
+		tt.tree.Select(todo.ID)
+	}, tt.win)
+}
+
+func (tt *TodosTab) renameItem(id string, currentName string) {
+	entry := widget.NewEntry()
+	entry.SetText(currentName)
+	dialog.ShowForm("Rename", "Save", "Cancel", []*widget.FormItem{
+		widget.NewFormItem("Name", entry),
+	}, func(ok bool) {
+		if !ok || entry.Text == "" || entry.Text == currentName {
+			return
+		}
+		item := tt.items[id]
+		var err error
+		if item.Type == TypeFolder {
+			folder, _ := tt.folderRepo.GetByID(id)
+			folder.Name = entry.Text
+			err = tt.folderRepo.Update(folder)
+		} else {
+			todo, _ := tt.todoRepo.GetByID(id)
+			todo.Title = entry.Text
+			err = tt.todoRepo.Update(todo)
+		}
+		if err != nil {
+			dialog.ShowError(err, tt.win)
+			return
+		}
+		tt.refreshData()
+	}, tt.win)
+}
+
+func (tt *TodosTab) deleteItem(id string, itemType ItemType) {
+	var typeStr string
+	if itemType == TypeFolder {
+		typeStr = "folder"
+	} else {
+		typeStr = "todo"
+	}
+	dialog.ShowConfirm("Delete", "Delete this "+typeStr+"?", func(ok bool) {
+		if !ok {
+			return
+		}
+		var err error
+		if itemType == TypeFolder {
+			err = tt.folderRepo.Delete(id)
+		} else {
+			err = tt.todoRepo.Delete(id)
+		}
+		if err != nil {
+			dialog.ShowError(err, tt.win)
+			return
+		}
+		if itemType == TypeTodo && tt.editor.currentTodoID == id {
+			tt.editor.Clear()
+		}
+		tt.refreshData()
+	}, tt.win)
+}
+
+func (tt *TodosTab) selectTodo(todoID string) {
+	tt.editor.LoadTodo(todoID)
+}
