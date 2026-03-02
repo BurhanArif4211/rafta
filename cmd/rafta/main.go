@@ -38,7 +38,6 @@ func main() {
 		log.Printf("Failed to start sync server: %v", err)
 	}
 	defer syncServer.Stop()
-	// log.Println(noteRepo.GetByFolder("f9001707-8a14-4e6a-a010-ba4d96b78e45"))
 	// Create Fyne app
 	a := app.New()
 	w := a.NewWindow("Rafta")
@@ -65,7 +64,7 @@ func main() {
 	//main ui setter
 	w.SetContent(tabs)
 
-	w.Resize(fyne.NewSize(600, 400))
+	// w.Resize(fyne.NewSize(800, 600))
 	w.ShowAndRun()
 }
 

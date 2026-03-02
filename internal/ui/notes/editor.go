@@ -11,16 +11,31 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+// minRichText is a RichText with a tiny minimum size to prevent window resizing.
+type minRichText struct {
+	widget.RichText
+}
+
+// func (m *minRichText) MinSize() fyne.Size {
+// 	return fyne.NewSize(10, 10)
+// }
+
+func newMinRichText() *minRichText {
+	base := widget.NewRichText()
+	return &minRichText{RichText: *base}
+}
+
 type NoteEditor struct {
-	noteRepo      repository.NoteRepository
-	win           fyne.Window
-	entry         *widget.Entry
-	preview       *widget.RichText
-	stack         *fyne.Container
-	saveBtn       *widget.Button
-	previewBtn    *widget.Button
-	currentNoteID string
-	content       fyne.CanvasObject
+	noteRepo          repository.NoteRepository
+	win               fyne.Window
+	entry             *widget.Entry
+	preview           *minRichText
+	scrollablePreview *container.Scroll
+	stack             *fyne.Container
+	saveBtn           *widget.Button
+	previewBtn        *widget.Button
+	currentNoteID     string
+	content           fyne.CanvasObject
 }
 
 func NewNoteEditor(noteRepo repository.NoteRepository, win fyne.Window) *NoteEditor {
@@ -28,16 +43,24 @@ func NewNoteEditor(noteRepo repository.NoteRepository, win fyne.Window) *NoteEdi
 		noteRepo: noteRepo,
 		win:      win,
 	}
+
+	// Entry with small minimum size
 	ne.entry = widget.NewMultiLineEntry()
-	ne.entry.Wrapping = fyne.TextWrapWord
-	ne.preview = widget.NewRichText()
-	ne.preview.Wrapping = fyne.TextWrapWord
-	ne.stack = container.NewStack(ne.entry, ne.preview)
-	ne.preview.Hide()
+	ne.entry.Wrapping = fyne.TextWrapBreak // Break long words to keep min width small
+	// ne.entry.MinRowsVisible = 1            // Force small min height
+
+	// Preview with tiny minimum size
+	ne.preview = newMinRichText()
+	ne.scrollablePreview = container.NewScroll(ne.preview)
+
+	// Stack: both widgets, only one visible at a time
+	ne.stack = container.NewStack(ne.scrollablePreview, ne.entry)
+	ne.preview.Hide() // start in edit mode
 
 	ne.saveBtn = widget.NewButtonWithIcon("", theme.DocumentSaveIcon(), ne.save)
 	ne.previewBtn = widget.NewButtonWithIcon("", theme.MenuIcon(), ne.togglePreview)
 	toolbar := container.NewHBox(ne.saveBtn, ne.previewBtn)
+
 	ne.content = container.NewBorder(toolbar, nil, nil, nil, ne.stack)
 	return ne
 }
@@ -82,13 +105,17 @@ func (ne *NoteEditor) save() {
 func (ne *NoteEditor) togglePreview() {
 	if ne.preview.Visible() {
 		ne.preview.Hide()
+		ne.preview.Scroll = container.ScrollNone
 		ne.entry.Show()
+		ne.entry.Scroll = container.ScrollBoth
 		ne.previewBtn.SetText("Preview")
 	} else {
-		ne.preview.ParseMarkdown(ne.entry.Text) // Fyne's RichText can parse markdown
+		ne.preview.ParseMarkdown(ne.entry.Text) // Update preview content
 		ne.entry.Hide()
+		ne.entry.Scroll = container.ScrollNone
 		ne.preview.Show()
+		ne.preview.Scroll = container.ScrollBoth
 		ne.previewBtn.SetText("Edit")
 	}
-	ne.stack.Refresh()
+	ne.stack.Refresh() // Ensure layout updates
 }

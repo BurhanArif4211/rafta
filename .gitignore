@@ -33,3 +33,4 @@ go.work.sum
 
 #burhan defined:
 data/
+testEnvs/
