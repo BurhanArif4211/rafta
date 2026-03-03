@@ -2,8 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"github.com/burhanarif4211/rafta/internal/models"
 	"time"
+
+	"github.com/burhanarif4211/rafta/internal/models"
 )
 
 type NoteFolderRepository interface {
@@ -32,7 +33,7 @@ func (r *noteFolderRepository) Create(folder *models.NoteFolder) error {
 }
 
 func (r *noteFolderRepository) GetAll() ([]*models.NoteFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders`)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func (r *noteFolderRepository) GetByID(id string) (*models.NoteFolder, error) {
 }
 
 func (r *noteFolderRepository) GetRoots() ([]*models.NoteFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders WHERE parent_id IS NULL`)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders WHERE parent_id IS NULL ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +78,7 @@ func (r *noteFolderRepository) GetRoots() ([]*models.NoteFolder, error) {
 }
 
 func (r *noteFolderRepository) GetChildren(parentID string) ([]*models.NoteFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders WHERE parent_id = ?`, parentID)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM note_folders WHERE parent_id = ? ORDER BY updated_at`, parentID)
 	if err != nil {
 		return nil, err
 	}

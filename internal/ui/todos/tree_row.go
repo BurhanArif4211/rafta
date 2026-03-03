@@ -54,27 +54,32 @@ func newTreeRow(branch bool, onAdd func(string), onRename func(string, string), 
 				tr.onAdd(tr.id) // add todo inside this folder
 			}
 		})
-		tr.container = container.NewHBox(
-			widget.NewIcon(theme.FolderIcon()),
-			tr.label,
+		left := container.NewHBox(
+			widget.NewIcon(
+				theme.FolderIcon()),
+			tr.label)
+		right := container.NewHBox(
 			tr.addBtn,
 			tr.renameBtn,
-			tr.deleteBtn,
+			tr.deleteBtn)
+		tr.container = container.NewBorder(nil, nil,
+			left,
+			right,
 		)
-	} else { // todo
-		tr.addBtn = widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-			if tr.id != "" && tr.itemType == TypeTodo {
-				tr.onAdd(tr.id) // add step to this todo
-			}
-		})
-		tr.container = container.NewHBox(
-			widget.NewIcon(theme.ListIcon()),
-			tr.label,
-			tr.addBtn,
+	} else { // note
+		left := container.NewHBox(
+			widget.NewIcon(
+				theme.DocumentIcon()),
+			tr.label)
+		right := container.NewHBox(
 			tr.renameBtn,
-			tr.deleteBtn,
+			tr.deleteBtn)
+		tr.container = container.NewBorder(nil, nil,
+			left,
+			right,
 		)
 	}
+
 	return tr
 }
 

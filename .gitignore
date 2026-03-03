@@ -7,6 +7,8 @@
 *.dll
 *.so
 *.dylib
+*.apk
+*.apk~
 
 # Test binary, built with `go test -c`
 *.test
@@ -33,3 +35,4 @@ go.work.sum
 
 #burhan defined:
 data/
+testEnvs/

@@ -2,8 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"github.com/burhanarif4211/rafta/internal/models"
 	"time"
+
+	"github.com/burhanarif4211/rafta/internal/models"
 )
 
 type TodoRepository interface {
@@ -30,7 +31,7 @@ func (r *todoRepository) Create(todo *models.Todo) error {
 }
 
 func (r *todoRepository) GetAll() ([]*models.Todo, error) {
-	rows, err := r.db.Query(`SELECT id, title, folder_id, created_at, updated_at FROM todos`)
+	rows, err := r.db.Query(`SELECT id, title, folder_id, created_at, updated_at FROM todos ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (r *todoRepository) GetByID(id string) (*models.Todo, error) {
 }
 
 func (r *todoRepository) GetByFolder(folderID string) ([]*models.Todo, error) {
-	rows, err := r.db.Query(`SELECT id, title, folder_id, created_at, updated_at FROM todos WHERE folder_id = ?`, folderID)
+	rows, err := r.db.Query(`SELECT id, title, folder_id, created_at, updated_at FROM todos WHERE folder_id = ? ORDER BY updated_at`, folderID)
 	if err != nil {
 		return nil, err
 	}
