@@ -2,8 +2,9 @@ package repository
 
 import (
 	"database/sql"
-	"github.com/burhanarif4211/rafta/internal/models"
 	"time"
+
+	"github.com/burhanarif4211/rafta/internal/models"
 )
 
 type TodoStepRepository interface {
@@ -33,7 +34,7 @@ func (r *todoStepRepository) Create(step *models.TodoStep) error {
 }
 
 func (r *todoStepRepository) GetAll() ([]*models.TodoStep, error) {
-	rows, err := r.db.Query(`SELECT id, todo_id, description, completed, display_order, created_at, updated_at FROM todo_steps`)
+	rows, err := r.db.Query(`SELECT id, todo_id, description, completed, display_order, created_at, updated_at FROM todo_steps ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}

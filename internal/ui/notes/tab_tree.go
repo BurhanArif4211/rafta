@@ -40,27 +40,35 @@ func newTreeRow(branch bool, onAddNote func(string), onRename func(string, strin
 			tr.onDelete(tr.id, tr.itemType)
 		}
 	})
-
 	if branch { // folder
 		tr.addBtn = widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
 			if tr.id != "" && tr.itemType == TypeFolder {
 				tr.onAddNote(tr.id)
 			}
 		})
-
-		tr.container = container.NewHBox(
-			widget.NewIcon(theme.FolderIcon()),
-			tr.label,
+		left := container.NewHBox(
+			widget.NewIcon(
+				theme.FolderIcon()),
+			tr.label)
+		right := container.NewHBox(
 			tr.addBtn,
 			tr.renameBtn,
-			tr.deleteBtn,
+			tr.deleteBtn)
+		tr.container = container.NewBorder(nil, nil,
+			left,
+			right,
 		)
 	} else { // note
-		tr.container = container.NewHBox(
-			widget.NewIcon(theme.DocumentIcon()),
-			tr.label,
+		left := container.NewHBox(
+			widget.NewIcon(
+				theme.DocumentIcon()),
+			tr.label)
+		right := container.NewHBox(
 			tr.renameBtn,
-			tr.deleteBtn,
+			tr.deleteBtn)
+		tr.container = container.NewBorder(nil, nil,
+			left,
+			right,
 		)
 	}
 	return tr

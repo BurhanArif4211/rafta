@@ -32,7 +32,7 @@ func (r *noteRepository) Create(note *models.Note) error {
 }
 
 func (r *noteRepository) GetAll() ([]*models.Note, error) {
-	rows, err := r.db.Query(`SELECT id, title, content, folder_id, created_at, updated_at FROM notes`)
+	rows, err := r.db.Query(`SELECT id, title, content, folder_id, created_at, updated_at FROM notes ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (r *noteRepository) GetAll() ([]*models.Note, error) {
 
 func (r *noteRepository) GetByID(id string) (*models.Note, error) {
 	var n models.Note
-	query := `SELECT id, title, content, folder_id, created_at, updated_at FROM notes WHERE id = ?`
+	query := `SELECT id, title, content, folder_id, created_at, updated_at FROM notes WHERE id = ? `
 	row := r.db.QueryRow(query, id)
 	err := row.Scan(&n.ID, &n.Title, &n.Content, &n.FolderID, &n.CreatedAt, &n.UpdatedAt)
 	if err != nil {
@@ -60,7 +60,7 @@ func (r *noteRepository) GetByID(id string) (*models.Note, error) {
 }
 
 func (r *noteRepository) GetByFolder(folderID string) (map[string]*models.Note, error) {
-	rows, err := r.db.Query(`SELECT id, title, content, folder_id, created_at, updated_at FROM notes WHERE folder_id = ?`, folderID)
+	rows, err := r.db.Query(`SELECT id, title, content, folder_id, created_at, updated_at FROM notes WHERE folder_id = ? ORDER BY updated_at`, folderID)
 	if err != nil {
 		return nil, err
 	}

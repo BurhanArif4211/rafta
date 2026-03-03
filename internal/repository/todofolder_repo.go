@@ -32,7 +32,7 @@ func (r *todoFolderRepository) Create(folder *models.TodoFolder) error {
 }
 
 func (r *todoFolderRepository) GetAll() ([]*models.TodoFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folders`)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folders ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r *todoFolderRepository) GetByID(id string) (*models.TodoFolder, error) {
 }
 
 func (r *todoFolderRepository) GetRoots() ([]*models.TodoFolder, error) {
-	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folders WHERE parent_id IS NULL`)
+	rows, err := r.db.Query(`SELECT id, name, parent_id, created_at, updated_at FROM todo_folders WHERE parent_id IS NULL ORDER BY updated_at`)
 	if err != nil {
 		return nil, err
 	}
