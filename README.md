@@ -1,5 +1,4 @@
 # Rafta
-# Rafta
 
 Rafta is a note taking and todo list application that runs entirely on your local machine and syncs across devices over your home network. 
 
@@ -8,9 +7,9 @@ This is an app for myself since i am tired of samsung notes not properly syncyin
 * **WARNING**: As an information security enthusiast, i urge you to not use this in a production enviroment. The app exposes your device open on the local network without any authentication or encryption. Use at your own risk. I consider my local network secure that's why i haven't added security features yet.
 
 # Showcase
-<div style="display: flex; gap:4px; justify-content: center;"> 
-<img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/2.jpg" alt="App screenshot 2" style=" max-width: 300px; width: 100%; height: auto;" /> 
-<img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/4.jpg" alt="App screenshot 4" style=" max-width: 300px; width: 100%; height: auto;" /> </div>
+
+(view1)[https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/2.jpg]
+(view2)[https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/4.jpg]
 
 
 ## How it works
