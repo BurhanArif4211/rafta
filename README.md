@@ -1,4 +1,5 @@
 # Rafta
+# Rafta
 
 Rafta is a note taking and todo list application that runs entirely on your local machine and syncs across devices over your home network. 
 
