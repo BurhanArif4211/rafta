@@ -4,6 +4,22 @@ Rafta is a note taking and todo list application that runs entirely on your loca
 
 This is an app for myself since i am tired of samsung notes not properly syncying with onenote. And I also wanted to bring the functionality of MS TODO and samsung notes to one app. 
 
+# Showcase
+
+<div style="display: flex; justify-content: space-between; align-items: flex-start;">
+  <!-- <img src="url_to_your_image1" alt="Image 1" style="width: 60%; max-width: 600px;"/> -->
+  <div style="display: flex; flex-direction: column; justify-content: space-between;">
+    <img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/1.png" alt="Image 2" style="width: 40%; max-width: 200px; margin-bottom: 5px;"/>
+    <img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/2.jpg" alt="Image 3" style="width: 40%; max-width: 200px;"/>
+  </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 20px;">
+  <img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/3.png" alt="Image 4" style="width: 60%; max-width: 600px;"/>
+  <img src="https://raw.githubusercontent.com/BurhanArif4211/rafta/refs/heads/main/img/4.jpg" alt="Image 5" style="width: 40%; max-width: 200px;"/>
+</div>
+
+
 ## How it works
 
 The notes editor lets you write in Markdown and switch to a preview. 

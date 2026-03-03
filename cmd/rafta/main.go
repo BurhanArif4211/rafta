@@ -83,8 +83,7 @@ func (t *forestTheme) Size(name fyne.ThemeSizeName) float32 {
 	case theme.SizeNameScrollBar:
 		return 8
 	case theme.SizeNameInlineIcon:
-		return 13
-
+		return 12
 	}
 	return t.Theme.Size(name)
 }
@@ -100,8 +99,9 @@ func (f forcedVariantTheme) Color(name fyne.ThemeColorName, _ fyne.ThemeVariant)
 }
 
 func main() {
-	// Initialize database
-	database, err := db.InitDB("./data/rafta-main.db")
+	// Initialize databases
+	dbPath := db.GetDatabasePath()
+	database, err := db.InitDB(dbPath)
 	if err != nil {
 		log.Fatal(err)
 	}

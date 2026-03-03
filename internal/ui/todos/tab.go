@@ -30,28 +30,34 @@ type TodosTab struct {
 	rootIDs []string
 
 	// UI
-	tree    *widget.Tree
-	editor  *TodoEditor
-	win     fyne.Window
-	content fyne.CanvasObject
+	tree           *widget.Tree
+	editor         *TodoEditor
+	win            fyne.Window
+	content        fyne.CanvasObject
+	leftPanel      *fyne.Container
+	splitContainer *container.Split
+	editorOnly     *fyne.Container
+	mainView       *fyne.Container
+	showSidebar    bool
 
 	// Selection
 	selectedID string
 
 	// Callbacks
-	onAdd    func(string) // folder -> add todo; todo -> add step
+	onAdd    func(string)
 	onRename func(string, string)
 	onDelete func(string, ItemType)
-	onSelect func(string) // select todo
+	onSelect func(string)
 }
 
 func NewTodosTab(folderRepo repository.TodoFolderRepository, todoRepo repository.TodoRepository, stepRepo repository.TodoStepRepository, win fyne.Window) *TodosTab {
 	tt := &TodosTab{
-		folderRepo: folderRepo,
-		todoRepo:   todoRepo,
-		stepRepo:   stepRepo,
-		win:        win,
-		items:      make(map[string]*Item),
+		folderRepo:  folderRepo,
+		todoRepo:    todoRepo,
+		stepRepo:    stepRepo,
+		win:         win,
+		items:       make(map[string]*Item),
+		showSidebar: true,
 	}
 	tt.onAdd = tt.handleAdd
 	tt.onRename = tt.renameItem
@@ -63,7 +69,7 @@ func NewTodosTab(folderRepo repository.TodoFolderRepository, todoRepo repository
 }
 
 func (tt *TodosTab) buildUI() {
-	// Tree with custom rows
+	// ----- Left panel: folder toolbar + tree -----
 	tt.tree = widget.NewTree(
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
 			if id == "" {
@@ -111,24 +117,53 @@ func (tt *TodosTab) buildUI() {
 		tt.editor.Clear()
 	}
 
-	// Editor
+	// Folder toolbar
+	folderToolbar := container.NewHBox(
+		widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), tt.refreshData),
+		widget.NewButtonWithIcon("", theme.ContentAddIcon(), tt.createFolder),
+		widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+			if tt.selectedID != "" {
+				item := tt.items[tt.selectedID]
+				tt.onRename(tt.selectedID, item.Name)
+			}
+		}),
+		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			if tt.selectedID != "" {
+				item := tt.items[tt.selectedID]
+				tt.onDelete(tt.selectedID, item.Type)
+			}
+		}),
+	)
+	tt.leftPanel = container.NewBorder(folderToolbar, nil, nil, nil, tt.tree)
+
+	// ----- Editor -----
 	tt.editor = NewTodoEditor(tt.todoRepo, tt.stepRepo, tt.win)
 
-	// Top toolbar
-	newFolderBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), tt.createFolder)
-	deselectBtn := widget.NewButtonWithIcon("", theme.ViewRestoreIcon(), func() {
-		tt.tree.UnselectAll()
-		tt.selectedID = ""
-		tt.editor.Clear()
-	})
-	refreshBtn := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), tt.refreshData)
-	toolbar := container.NewHBox(newFolderBtn, deselectBtn, refreshBtn)
+	// ----- Split container -----
+	tt.splitContainer = container.NewHSplit(tt.leftPanel, tt.editor.Content())
+	tt.splitContainer.SetOffset(0.3)
 
-	// Split view
-	left := container.NewBorder(toolbar, nil, nil, nil, tt.tree)
-	split := container.NewHSplit(left, tt.editor.Content())
-	split.Offset = 0.3
-	tt.content = split
+	// ----- Editor-only view -----
+	tt.editorOnly = container.NewStack(tt.editor.Content())
+
+	// ----- Main view -----
+	tt.mainView = container.NewStack(tt.splitContainer)
+
+	tt.content = container.NewBorder(
+		container.NewHBox(widget.NewButtonWithIcon("", theme.NavigateBackIcon(), tt.toggleSidebar)),
+		nil, nil, nil,
+		tt.mainView)
+}
+
+func (tt *TodosTab) toggleSidebar() {
+	tt.showSidebar = !tt.showSidebar
+	tt.mainView.RemoveAll()
+	if tt.showSidebar {
+		tt.mainView.Add(tt.splitContainer)
+	} else {
+		tt.mainView.Add(tt.editorOnly)
+	}
+	tt.mainView.Refresh()
 }
 
 func (tt *TodosTab) Content() fyne.CanvasObject {

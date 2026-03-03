@@ -3,6 +3,8 @@ package db
 import (
 	"database/sql"
 	"log"
+	"os"
+	"path/filepath"
 
 	_ "modernc.org/sqlite"
 )
@@ -97,4 +99,16 @@ func InitDB(dbPath string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func GetDatabasePath() string {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		// Fallback to temporary directory (should never happen on Android)
+		return filepath.Join(os.TempDir(), "rafta-main.db")
+	}
+	// Create a subdirectory for your app to avoid cluttering
+	// appDir := filepath.Join(configDir, "rafta")
+	// os.MkdirAll(appDir, 0700) // ensure directory exists
+	return filepath.Join(configDir, "rafta-main.db")
 }

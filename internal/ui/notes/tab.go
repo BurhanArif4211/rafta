@@ -26,23 +26,29 @@ type Item struct {
 	Name     string
 	ParentID string // for notes: folder ID; for folders: parent folder ID (empty if root)
 }
-
 type NotesTab struct {
 	noteFolderRepo repository.NoteFolderRepository
 	noteRepo       repository.NoteRepository
 
 	// Data
-	items      map[string]*Item
-	selectedID string   // add this field
-	rootIDs    []string // IDs of root folders
+	items   map[string]*Item
+	rootIDs []string
 
 	// UI
-	tree    *widget.Tree
-	editor  *NoteEditor
-	win     fyne.Window
-	content fyne.CanvasObject
+	tree           *widget.Tree
+	editor         *NoteEditor
+	win            fyne.Window
+	content        fyne.CanvasObject
+	leftPanel      *fyne.Container
+	splitContainer *container.Split
+	editorOnly     *fyne.Container
+	mainView       *fyne.Container
+	showSidebar    bool
 
-	// Callbacks (set in constructor)
+	// Selection
+	selectedID string
+
+	// Callbacks
 	onAddNote    func(string)
 	onRename     func(string, string)
 	onDelete     func(string, ItemType)
@@ -55,6 +61,7 @@ func NewNotesTab(noteFolderRepo repository.NoteFolderRepository, noteRepo reposi
 		noteRepo:       noteRepo,
 		win:            win,
 		items:          make(map[string]*Item),
+		showSidebar:    true,
 	}
 	nt.onAddNote = nt.createNote
 	nt.onRename = nt.renameItem
@@ -66,9 +73,8 @@ func NewNotesTab(noteFolderRepo repository.NoteFolderRepository, noteRepo reposi
 }
 
 func (nt *NotesTab) buildUI() {
-	// Tree with custom rows
+	// ----- Left panel: folder toolbar + tree -----
 	nt.tree = widget.NewTree(
-		// child IDs
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
 			if id == "" {
 				return nt.rootIDs
@@ -81,19 +87,16 @@ func (nt *NotesTab) buildUI() {
 			}
 			return children
 		},
-		// is branch (folder)
 		func(id widget.TreeNodeID) bool {
 			if id == "" {
-				return true // root is branch (invisible)
+				return true
 			}
 			item, ok := nt.items[id]
 			return ok && item.Type == TypeFolder
 		},
-		// create node
 		func(branch bool) fyne.CanvasObject {
 			return newTreeRow(branch, nt.onAddNote, nt.onRename, nt.onDelete)
 		},
-		// update node
 		func(id widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
 			row := obj.(*treeRow)
 			if id == "" {
@@ -113,27 +116,58 @@ func (nt *NotesTab) buildUI() {
 			nt.onSelectNote(id)
 		}
 	}
-
 	nt.tree.OnUnselected = func(id widget.TreeNodeID) {
 		nt.selectedID = ""
 	}
 
-	// Editor
+	// Folder toolbar
+	folderToolbar := container.NewHBox(
+		widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), nt.refreshData),
+		widget.NewButtonWithIcon("", theme.ContentAddIcon(), nt.createFolder),
+		widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
+			if nt.selectedID != "" {
+				item := nt.items[nt.selectedID]
+				nt.onRename(nt.selectedID, item.Name)
+			}
+		}),
+		widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
+			if nt.selectedID != "" {
+				item := nt.items[nt.selectedID]
+				nt.onDelete(nt.selectedID, item.Type)
+			}
+		}),
+	)
+	nt.leftPanel = container.NewBorder(folderToolbar, nil, nil, nil, nt.tree)
+
+	// ----- Editor -----
 	nt.editor = NewNoteEditor(nt.noteRepo, nt.win)
 
-	// Top toolbar
-	newFolderBtn := widget.NewButtonWithIcon("", theme.ContentAddIcon(), nt.createFolder)
-	deselectBtn := widget.NewButtonWithIcon("", theme.ViewRestoreIcon(), func() {
-		nt.tree.UnselectAll()
-	})
-	refreshBtn := widget.NewButtonWithIcon("", theme.ViewRefreshIcon(), nt.refreshData)
-	toolbar := container.NewHBox(newFolderBtn, deselectBtn, refreshBtn)
+	// ----- Split container (resizable) -----
+	nt.splitContainer = container.NewHSplit(nt.leftPanel, nt.editor.Content())
+	nt.splitContainer.SetOffset(0.3)
 
-	// Split view
-	left := container.NewBorder(toolbar, nil, nil, nil, nt.tree)
-	split := container.NewHSplit(left, nt.editor.Content())
-	split.Offset = 0.3
-	nt.content = split
+	// ----- Editor-only view (collapsed) -----
+	nt.editorOnly = container.NewStack(nt.editor.Content())
+
+	// ----- Main view: holds either split or editorOnly -----
+	nt.mainView = container.NewStack(nt.splitContainer) // start with split
+
+	// Final layout: top toolbar + mainView
+	nt.content = container.NewBorder(
+		container.NewHBox(widget.NewButtonWithIcon("", theme.NavigateBackIcon(), nt.toggleSidebar)),
+		nil, nil, nil,
+		nt.mainView)
+}
+
+func (nt *NotesTab) toggleSidebar() {
+	nt.showSidebar = !nt.showSidebar
+	nt.mainView.RemoveAll()
+	if nt.showSidebar {
+		nt.mainView.Add(nt.splitContainer)
+	} else {
+		nt.mainView.Add(nt.editorOnly)
+	}
+	nt.mainView.Refresh()
 }
 
 func (nt *NotesTab) Content() fyne.CanvasObject {
