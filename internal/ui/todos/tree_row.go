@@ -3,6 +3,7 @@ package todos
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -19,67 +20,40 @@ type treeRow struct {
 	id        string
 	itemType  ItemType
 	label     *widget.Label
-	addBtn    *widget.Button
-	renameBtn *widget.Button
-	deleteBtn *widget.Button
+	moreBtn   *widget.Button
 	container *fyne.Container
-	onAdd     func(string) // for folder: add todo; for todo: add step
+	onAdd     func(string)
 	onRename  func(string, string)
 	onDelete  func(string, ItemType)
+	win       fyne.Window
 }
 
-func newTreeRow(branch bool, onAdd func(string), onRename func(string, string), onDelete func(string, ItemType)) *treeRow {
+func newTreeRow(branch bool, onAdd func(string), onRename func(string, string), onDelete func(string, ItemType), win fyne.Window) *treeRow {
 	tr := &treeRow{
 		label:    widget.NewLabel(""),
 		onAdd:    onAdd,
 		onRename: onRename,
 		onDelete: onDelete,
+		win:      win,
 	}
 	tr.ExtendBaseWidget(tr)
 
-	tr.renameBtn = widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-		if tr.id != "" {
-			tr.onRename(tr.id, tr.label.Text)
-		}
-	})
-	tr.deleteBtn = widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		if tr.id != "" {
-			tr.onDelete(tr.id, tr.itemType)
-		}
-	})
-
-	if branch { // folder
-		tr.addBtn = widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-			if tr.id != "" && tr.itemType == TypeFolder {
-				tr.onAdd(tr.id) // add todo inside this folder
-			}
-		})
-		left := container.NewHBox(
-			widget.NewIcon(
-				theme.FolderIcon()),
-			tr.label)
-		right := container.NewHBox(
-			tr.addBtn,
-			tr.renameBtn,
-			tr.deleteBtn)
-		tr.container = container.NewBorder(nil, nil,
-			left,
-			right,
-		)
-	} else { // note
-		left := container.NewHBox(
-			widget.NewIcon(
-				theme.DocumentIcon()),
-			tr.label)
-		right := container.NewHBox(
-			tr.renameBtn,
-			tr.deleteBtn)
-		tr.container = container.NewBorder(nil, nil,
-			left,
-			right,
-		)
+	var icon fyne.Resource
+	if branch {
+		icon = theme.FolderIcon()
+	} else {
+		icon = theme.ListIcon() // or DocumentIcon?
 	}
+	iconWidget := widget.NewIcon(icon)
 
+	tr.moreBtn = widget.NewButtonWithIcon("", theme.MoreHorizontalIcon(), tr.showMenu)
+
+	tr.container = container.NewHBox(
+		iconWidget,
+		tr.label,
+		layout.NewSpacer(),
+		tr.moreBtn,
+	)
 	return tr
 }
 
@@ -91,4 +65,47 @@ func (tr *treeRow) SetItem(id string, name string, itemType ItemType) {
 
 func (tr *treeRow) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(tr.container)
+}
+
+func (tr *treeRow) showMenu() {
+	items := []*fyne.MenuItem{}
+
+	if tr.itemType == TypeFolder {
+		addItem := fyne.NewMenuItem("Add Todo", func() {
+			if tr.onAdd != nil {
+				tr.onAdd(tr.id)
+			}
+		})
+		addItem.Icon = theme.ContentAddIcon()
+		items = append(items, addItem)
+	} else if tr.itemType == TypeTodo {
+		addStepItem := fyne.NewMenuItem("Add Step", func() {
+			if tr.onAdd != nil {
+				tr.onAdd(tr.id)
+			}
+		})
+		addStepItem.Icon = theme.ContentAddIcon()
+		items = append(items, addStepItem)
+	}
+
+	renameItem := fyne.NewMenuItem("Rename", func() {
+		if tr.onRename != nil {
+			tr.onRename(tr.id, tr.label.Text)
+		}
+	})
+	renameItem.Icon = theme.DocumentCreateIcon()
+	items = append(items, renameItem)
+
+	deleteItem := fyne.NewMenuItem("Delete", func() {
+		if tr.onDelete != nil {
+			tr.onDelete(tr.id, tr.itemType)
+		}
+	})
+	deleteItem.Icon = theme.DeleteIcon()
+	items = append(items, deleteItem)
+
+	menu := fyne.NewMenu("", items...)
+
+	popup := widget.NewPopUpMenu(menu, tr.win.Canvas())
+	popup.ShowAtPosition(tr.moreBtn.Position().Add(fyne.NewPos(0, tr.moreBtn.Size().Height)))
 }

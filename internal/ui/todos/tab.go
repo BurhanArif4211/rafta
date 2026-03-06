@@ -2,6 +2,9 @@ package todos
 
 import (
 	"database/sql"
+	"sort"
+	"sync"
+	"time"
 
 	"github.com/burhanarif4211/rafta/internal/models"
 	"github.com/burhanarif4211/rafta/internal/repository"
@@ -14,10 +17,12 @@ import (
 )
 
 type Item struct {
-	ID       string
-	Type     ItemType
-	Name     string
-	ParentID string // for todos: folder ID; for folders: parent folder ID (empty if root)
+	ID        string
+	Type      ItemType
+	Name      string
+	ParentID  string // for todos: folder ID; for folders: parent folder ID (empty if root)
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type TodosTab struct {
@@ -48,6 +53,7 @@ type TodosTab struct {
 	onRename func(string, string)
 	onDelete func(string, ItemType)
 	onSelect func(string)
+	mu       sync.RWMutex
 }
 
 func NewTodosTab(folderRepo repository.TodoFolderRepository, todoRepo repository.TodoRepository, stepRepo repository.TodoStepRepository, win fyne.Window) *TodosTab {
@@ -81,6 +87,7 @@ func (tt *TodosTab) buildUI() {
 					children = append(children, item.ID)
 				}
 			}
+			tt.sortChildren(children)
 			return children
 		},
 		func(id widget.TreeNodeID) bool {
@@ -91,7 +98,7 @@ func (tt *TodosTab) buildUI() {
 			return ok && item.Type == TypeFolder
 		},
 		func(branch bool) fyne.CanvasObject {
-			return newTreeRow(branch, tt.onAdd, tt.onRename, tt.onDelete)
+			return newTreeRow(branch, tt.onAdd, tt.onRename, tt.onDelete, tt.win)
 		},
 		func(id widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
 			row := obj.(*treeRow)
@@ -191,18 +198,22 @@ func (tt *TodosTab) refreshData() {
 			parentID = f.ParentID.String
 		}
 		tt.items[f.ID] = &Item{
-			ID:       f.ID,
-			Type:     TypeFolder,
-			Name:     f.Name,
-			ParentID: parentID,
+			ID:        f.ID,
+			Type:      TypeFolder,
+			Name:      f.Name,
+			ParentID:  parentID,
+			CreatedAt: f.CreatedAt,
+			UpdatedAt: f.UpdatedAt,
 		}
 	}
 	for _, t := range todos {
 		tt.items[t.ID] = &Item{
-			ID:       t.ID,
-			Type:     TypeTodo,
-			Name:     t.Title,
-			ParentID: t.FolderID,
+			ID:        t.ID,
+			Type:      TypeTodo,
+			Name:      t.Title,
+			ParentID:  t.FolderID,
+			CreatedAt: t.CreatedAt,
+			UpdatedAt: t.UpdatedAt,
 		}
 	}
 	// Compute root IDs
@@ -212,6 +223,8 @@ func (tt *TodosTab) refreshData() {
 			tt.rootIDs = append(tt.rootIDs, item.ID)
 		}
 	}
+	tt.sortChildren(tt.rootIDs)
+
 	tt.tree.Refresh()
 }
 
@@ -246,9 +259,10 @@ func (tt *TodosTab) handleAdd(parentID string) {
 	if !exists {
 		return
 	}
-	if item.Type == TypeFolder {
+	switch item.Type {
+	case TypeFolder:
 		tt.createTodo(parentID)
-	} else if item.Type == TypeTodo {
+	case TypeTodo:
 		// Focus step entry in editor
 		tt.editor.addStepEntry.FocusGained() // but we need to ensure the todo is selected
 		if tt.selectedID != parentID {
@@ -335,4 +349,16 @@ func (tt *TodosTab) deleteItem(id string, itemType ItemType) {
 
 func (tt *TodosTab) selectTodo(todoID string) {
 	tt.editor.LoadTodo(todoID)
+}
+func (nt *TodosTab) sortChildren(ids []string) {
+	sort.SliceStable(ids, func(i, j int) bool {
+		a := nt.items[ids[i]]
+		b := nt.items[ids[j]]
+		// Folders first
+		if a.Type != b.Type {
+			return a.Type == TypeFolder
+		}
+		// Then by creation date (oldest first)
+		return a.CreatedAt.Before(b.CreatedAt)
+	})
 }

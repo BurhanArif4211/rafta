@@ -2,6 +2,9 @@ package notes
 
 import (
 	"database/sql"
+	"sort"
+	"sync"
+	"time"
 
 	"github.com/burhanarif4211/rafta/internal/models"
 	"github.com/burhanarif4211/rafta/internal/repository"
@@ -21,10 +24,12 @@ const (
 )
 
 type Item struct {
-	ID       string
-	Type     ItemType
-	Name     string
-	ParentID string // for notes: folder ID; for folders: parent folder ID (empty if root)
+	ID        string
+	Type      ItemType
+	Name      string
+	ParentID  string // for notes: folder ID; for folders: parent folder ID (empty if root)
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 type NotesTab struct {
 	noteFolderRepo repository.NoteFolderRepository
@@ -53,6 +58,8 @@ type NotesTab struct {
 	onRename     func(string, string)
 	onDelete     func(string, ItemType)
 	onSelectNote func(string)
+
+	mu sync.RWMutex
 }
 
 func NewNotesTab(noteFolderRepo repository.NoteFolderRepository, noteRepo repository.NoteRepository, win fyne.Window) *NotesTab {
@@ -76,6 +83,8 @@ func (nt *NotesTab) buildUI() {
 	// ----- Left panel: folder toolbar + tree -----
 	nt.tree = widget.NewTree(
 		func(id widget.TreeNodeID) []widget.TreeNodeID {
+			// nt.mu.RLock()
+			// defer nt.mu.RUnlock()
 			if id == "" {
 				return nt.rootIDs
 			}
@@ -85,6 +94,7 @@ func (nt *NotesTab) buildUI() {
 					children = append(children, item.ID)
 				}
 			}
+			nt.sortChildren(children)
 			return children
 		},
 		func(id widget.TreeNodeID) bool {
@@ -95,7 +105,7 @@ func (nt *NotesTab) buildUI() {
 			return ok && item.Type == TypeFolder
 		},
 		func(branch bool) fyne.CanvasObject {
-			return newTreeRow(branch, nt.onAddNote, nt.onRename, nt.onDelete)
+			return newTreeRow(branch, nt.onAddNote, nt.onRename, nt.onDelete, nt.win)
 		},
 		func(id widget.TreeNodeID, branch bool, obj fyne.CanvasObject) {
 			row := obj.(*treeRow)
@@ -187,6 +197,9 @@ func (nt *NotesTab) refreshData() {
 		dialog.ShowError(err, nt.win)
 		return
 	}
+	// nt.mu.Lock()
+	// defer nt.mu.Unlock()
+
 	// Build items map
 	nt.items = make(map[string]*Item)
 	for _, f := range folders {
@@ -195,18 +208,22 @@ func (nt *NotesTab) refreshData() {
 			parentID = f.ParentID.String
 		}
 		nt.items[f.ID] = &Item{
-			ID:       f.ID,
-			Type:     TypeFolder,
-			Name:     f.Name,
-			ParentID: parentID,
+			ID:        f.ID,
+			Type:      TypeFolder,
+			Name:      f.Name,
+			ParentID:  parentID,
+			CreatedAt: f.CreatedAt,
+			UpdatedAt: f.UpdatedAt,
 		}
 	}
 	for _, n := range notes {
 		nt.items[n.ID] = &Item{
-			ID:       n.ID,
-			Type:     TypeNote,
-			Name:     n.Title,
-			ParentID: n.FolderID,
+			ID:        n.ID,
+			Type:      TypeNote,
+			Name:      n.Title,
+			ParentID:  n.FolderID,
+			CreatedAt: n.CreatedAt,
+			UpdatedAt: n.UpdatedAt,
 		}
 	}
 	// Compute root IDs (items with empty ParentID)
@@ -216,6 +233,7 @@ func (nt *NotesTab) refreshData() {
 			nt.rootIDs = append(nt.rootIDs, item.ID)
 		}
 	}
+	nt.sortChildren(nt.rootIDs)
 	nt.tree.Refresh()
 }
 func (nt *NotesTab) createFolder() {
@@ -241,7 +259,6 @@ func (nt *NotesTab) createFolder() {
 		nt.refreshData()
 	}, nt.win)
 }
-
 func (nt *NotesTab) createNote(folderID string) {
 	entry := widget.NewEntry()
 	dialog.ShowForm("New Note", "Create", "Cancel", []*widget.FormItem{
@@ -261,7 +278,6 @@ func (nt *NotesTab) createNote(folderID string) {
 		nt.onSelectNote(note.ID)
 	}, nt.win)
 }
-
 func (nt *NotesTab) renameItem(id string, currentName string) {
 	entry := widget.NewEntry()
 	entry.SetText(currentName)
@@ -289,7 +305,6 @@ func (nt *NotesTab) renameItem(id string, currentName string) {
 		nt.refreshData()
 	}, nt.win)
 }
-
 func (nt *NotesTab) deleteItem(id string, itemType ItemType) {
 	var typeStr string
 	if itemType == TypeFolder {
@@ -317,7 +332,6 @@ func (nt *NotesTab) deleteItem(id string, itemType ItemType) {
 		nt.refreshData()
 	}, nt.win)
 }
-
 func (nt *NotesTab) loadNote(noteID string) {
 	note, err := nt.noteRepo.GetByID(noteID)
 	if err != nil {
@@ -325,4 +339,16 @@ func (nt *NotesTab) loadNote(noteID string) {
 		return
 	}
 	nt.editor.LoadNote(note)
+}
+func (nt *NotesTab) sortChildren(ids []string) {
+	sort.SliceStable(ids, func(i, j int) bool {
+		a := nt.items[ids[i]]
+		b := nt.items[ids[j]]
+		// Folders first
+		if a.Type != b.Type {
+			return a.Type == TypeFolder
+		}
+		// Then by creation date (oldest first)
+		return a.CreatedAt.Before(b.CreatedAt)
+	})
 }

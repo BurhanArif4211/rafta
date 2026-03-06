@@ -16,10 +16,6 @@ type minRichText struct {
 	widget.RichText
 }
 
-// func (m *minRichText) MinSize() fyne.Size {
-// 	return fyne.NewSize(10, 10)
-// }
-
 func newMinRichText() *minRichText {
 	base := widget.NewRichText()
 	return &minRichText{RichText: *base}

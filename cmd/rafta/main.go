@@ -77,9 +77,9 @@ func (t *forestTheme) Size(name fyne.ThemeSizeName) float32 {
 	case theme.SizeNameHeadingText:
 		return 18
 	case theme.SizeNamePadding:
-		return 6
+		return 2
 	case theme.SizeNameInnerPadding:
-		return 10
+		return 5
 	case theme.SizeNameScrollBar:
 		return 8
 	case theme.SizeNameInlineIcon:
@@ -133,7 +133,7 @@ func main() {
 	// Create notes tab
 	notesTab := notes.NewNotesTab(noteFolderRepo, noteRepo, w)
 
-	// Create todos tab (we'll implement later)
+	// Create todos tab
 	todosTab := todos.NewTodosTab(todoFolderRepo, todoRepo, todoStepRepo, w)
 
 	tabs := container.NewAppTabs(

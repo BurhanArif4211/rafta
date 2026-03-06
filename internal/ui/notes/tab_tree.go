@@ -3,6 +3,7 @@ package notes
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -12,65 +13,43 @@ type treeRow struct {
 	id        string
 	itemType  ItemType
 	label     *widget.Label
-	addBtn    *widget.Button
-	renameBtn *widget.Button
-	deleteBtn *widget.Button
+	moreBtn   *widget.Button
 	container *fyne.Container
 	onAddNote func(string)
 	onRename  func(string, string)
 	onDelete  func(string, ItemType)
+	win       fyne.Window
 }
 
-func newTreeRow(branch bool, onAddNote func(string), onRename func(string, string), onDelete func(string, ItemType)) *treeRow {
+func newTreeRow(branch bool, onAddNote func(string), onRename func(string, string), onDelete func(string, ItemType), win fyne.Window) *treeRow {
 	tr := &treeRow{
 		label:     widget.NewLabel(""),
 		onAddNote: onAddNote,
 		onRename:  onRename,
 		onDelete:  onDelete,
+		win:       win,
 	}
 	tr.ExtendBaseWidget(tr)
 
-	tr.renameBtn = widget.NewButtonWithIcon("", theme.DocumentCreateIcon(), func() {
-		if tr.id != "" {
-			tr.onRename(tr.id, tr.label.Text)
-		}
-	})
-	tr.deleteBtn = widget.NewButtonWithIcon("", theme.DeleteIcon(), func() {
-		if tr.id != "" {
-			tr.onDelete(tr.id, tr.itemType)
-		}
-	})
-	if branch { // folder
-		tr.addBtn = widget.NewButtonWithIcon("", theme.ContentAddIcon(), func() {
-			if tr.id != "" && tr.itemType == TypeFolder {
-				tr.onAddNote(tr.id)
-			}
-		})
-		left := container.NewHBox(
-			widget.NewIcon(
-				theme.FolderIcon()),
-			tr.label)
-		right := container.NewHBox(
-			tr.addBtn,
-			tr.renameBtn,
-			tr.deleteBtn)
-		tr.container = container.NewBorder(nil, nil,
-			left,
-			right,
-		)
-	} else { // note
-		left := container.NewHBox(
-			widget.NewIcon(
-				theme.DocumentIcon()),
-			tr.label)
-		right := container.NewHBox(
-			tr.renameBtn,
-			tr.deleteBtn)
-		tr.container = container.NewBorder(nil, nil,
-			left,
-			right,
-		)
+	// Icon based on type
+	var icon fyne.Resource
+	if branch {
+		icon = theme.FolderIcon()
+	} else {
+		icon = theme.DocumentIcon()
 	}
+	iconWidget := widget.NewIcon(icon)
+
+	// More options button
+	tr.moreBtn = widget.NewButtonWithIcon("", theme.MoreHorizontalIcon(), tr.showMenu)
+
+	// Layout: icon | label (expands) | moreBtn
+	tr.container = container.NewHBox(
+		iconWidget,
+		tr.label,
+		layout.NewSpacer(),
+		tr.moreBtn,
+	)
 	return tr
 }
 
@@ -82,4 +61,44 @@ func (tr *treeRow) SetItem(id string, name string, itemType ItemType) {
 
 func (tr *treeRow) CreateRenderer() fyne.WidgetRenderer {
 	return widget.NewSimpleRenderer(tr.container)
+}
+
+func (tr *treeRow) showMenu() {
+	// Build menu items based on item type
+	items := []*fyne.MenuItem{}
+
+	if tr.itemType == TypeFolder {
+		// Add note option for folders
+		addNoteItem := fyne.NewMenuItem("Add Note", func() {
+			if tr.onAddNote != nil {
+				tr.onAddNote(tr.id)
+			}
+		})
+		addNoteItem.Icon = theme.ContentAddIcon()
+		items = append(items, addNoteItem)
+	}
+
+	// Rename option (always present)
+	renameItem := fyne.NewMenuItem("Rename", func() {
+		if tr.onRename != nil {
+			tr.onRename(tr.id, tr.label.Text)
+		}
+	})
+	renameItem.Icon = theme.DocumentCreateIcon()
+	items = append(items, renameItem)
+
+	// Delete option (always present)
+	deleteItem := fyne.NewMenuItem("Delete", func() {
+		if tr.onDelete != nil {
+			tr.onDelete(tr.id, tr.itemType)
+		}
+	})
+	deleteItem.Icon = theme.DeleteIcon()
+	items = append(items, deleteItem)
+
+	menu := fyne.NewMenu("", items...)
+
+	// Show popup menu anchored to the more button
+	popup := widget.NewPopUpMenu(menu, tr.win.Canvas())
+	popup.ShowAtPosition(tr.moreBtn.Position().Add(fyne.NewPos(0, tr.moreBtn.Size().Height)))
 }
